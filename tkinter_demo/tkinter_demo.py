@@ -18,8 +18,9 @@ frame_counter = 0
 descrete_unit = 0.0345 # Basically the speed by which it moves
 
 radius_a = 50
-radius_b = radius_a * 1
+# radius_b = radius_a * 1
 # radius_b = radius_a * math.pi
+radius_b = radius_a * 1.6180339887
 
 lines = [ ] # List for storing the points of the curve
 center_a = 0
