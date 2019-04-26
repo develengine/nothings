@@ -166,12 +166,12 @@ namespace eng {
     public:
 
         template <typename... Args>
-        Vector(Args... args) : Vector<3, T>(args...) { }
+        Vector3(Args... args) : Vector<3, T>(args...) { }
 
-        Vector() { }
+        Vector3() { }
 
         inline Vector3 cross(const Vector3 &b) const {
-            Vector3 &a = (*this);
+            const Vector3 &a = (*this);
             return Vector3(
                 a[1] * b[2] - a[2] * b[1],
                 a[2] * b[0] - a[0] * b[2],
@@ -264,16 +264,16 @@ namespace eng {
 
     public:
 
-        template <typename... Args>
-        Matrix(Args... args) : data{ T(args)... } {
-            static_assert(sizeof...(Args) == D * D, "Wrong number of arguments");
-        }
-
         Matrix(T value) {
             for (int i = 0; i < D * D; i++)
                 data[i] = 0;
             for (int i = 0; i < D; i++)
                 data[i * D + i] = value;
+        }
+
+        template <typename... Args>
+        Matrix(Args... args) : data{ T(args)... } {
+            static_assert(sizeof...(Args) == D * D, "Wrong number of arguments");
         }
 
         Matrix() { }
@@ -330,34 +330,36 @@ namespace eng {
 
     public:
 
+        Matrix4x4(T value) : Matrix<4, T>(value) { 
+            std::cout << "Yay\n";
+        }
+
         template<typename... Args>
         Matrix4x4(Args... args) : Matrix<4, T>(args...) { }
-
-        Matrix4x4(T value) : Matrix<4, T>(value) { }
 
         Matrix4x4() { }
 
 
-        static Matrix4x4 translation(T x, T y, T z) {
-            Matrix4x4 output = Matrix4x4(1);
+        static Matrix<4, T> translation(T x, T y, T z) {
+            Matrix<4, T> output = Matrix<4, T>(1);
             output[3][0] = x;
             output[3][1] = y;
             output[3][2] = z;
             return output;
         }
 
-        static Matrix4x4 scale(T x, T y, T z) {
-            Matrix4x4 output = Matrix4x4(0);
+        static Matrix<4, T> scale(T x, T y, T z) {
+            Matrix<4, T> output = Matrix<4, T>(0);
             output[0][0] = x;
             output[1][1] = y;
             output[2][2] = z;
             return output;
         }
 
-        static Matrix4x4 xRotation(T angle) {
+        static Matrix<4, T> xRotation(T angle) {
             T si = sin(angle);
             T co = cos(angle);
-            Matrix4x4 output = Matrix4x4(1);
+            Matrix<4, T> output = Matrix<4, T>(1);
             output[1][1] = co;
             output[2][1] = -si;
             output[1][2] = si;
@@ -365,10 +367,10 @@ namespace eng {
             return output;
         }
 
-        static Matrix4x4 yRotation(T angle) {
+        static Matrix<4, T> yRotation(T angle) {
             T si = sin(angle);
             T co = cos(angle);
-            Matrix4x4 output = Matrix4x4(1);
+            Matrix<4, T> output = Matrix<4, T>(1);
             output[0][0] = co;
             output[0][2] = -si;
             output[2][0] = si;
@@ -376,10 +378,10 @@ namespace eng {
             return output;
         }
 
-        static Matrix4x4 zRotation(T angle) {
+        static Matrix<4, T> zRotation(T angle) {
             T si = sin(angle);
             T co = cos(angle);
-            Matrix4x4 output = Matrix4x4(1);
+            Matrix<4, T> output = Matrix<4, T>(1);
             output[0][0] = co;
             output[1][0] = -si;
             output[0][1] = si;
@@ -389,7 +391,7 @@ namespace eng {
 
 #ifdef ENG_MATH_GL
 
-        static Matrix4x4 GL_Projection(
+        static Matrix<4, T> GL_Projection(
             float fov, float width, float height,
             float nPlane, float fPlane
         ) {
@@ -397,21 +399,21 @@ namespace eng {
             float yScale = (float)((1.0f / tan((fov / 2.0f) * M_PI / 180)) * aspectRatio);
             float xScale = yScale / aspectRatio;
             float frustumLength = fPlane - nPlane;
-            Matrix4x4 output = Matrix4x4(1);
-            output[0, 0] = xScale;
-            output[1, 1] = yScale;
-            output[2, 2] = -((fPlane + nPlane) / frustumLength);
-            output[2, 3] = -1;
-            output[3, 2] = -((2 * nPlane * fPlane) / frustumLength);
+            Matrix<4, T> output = Matrix<4, T>(1);
+            output[0][0] = xScale;
+            output[1][1] = yScale;
+            output[2][2] = -((fPlane + nPlane) / frustumLength);
+            output[2][3] = -1;
+            output[3][2] = -((2 * nPlane * fPlane) / frustumLength);
             return output;
         }
 
         template<typename QT>
-        Matrix4x4 GL_View(
+        Matrix<4, T> GL_View(
             float x, float y, float z,
             const QuaternionNumber<QT> &q
         ) {
-            return Matrix4x4();
+            return Matrix<4, T>();
 	    }
 
 

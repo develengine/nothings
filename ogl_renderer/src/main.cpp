@@ -3,6 +3,7 @@
 #include <stb_image.h>
 
 #include <iostream>
+#include <chrono>
 
 #include <string.h>
 #include <math.h>
@@ -20,6 +21,11 @@ float cameraRotY = 0.f;
 float cameraPosX = 0.f;
 float cameraPosY = 0.f;
 float cameraPosZ = 5.f;
+
+struct Model {
+    eng::Vec3f position;
+    eng::Vec3f scale;
+};
 
 void processInput(GLFWwindow *window) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
@@ -117,6 +123,14 @@ const char *fragmentShaderSource = R"glsl(
         vec3 specular;
     };
 
+    struct Sun {
+        vec3 direction;
+
+        vec3 ambient;
+        vec3 diffuse;
+        vec3 specular;
+    };
+
 
     in vec2 TexCoord;
     in vec3 Normal;
@@ -126,6 +140,7 @@ const char *fragmentShaderSource = R"glsl(
 
     uniform Material material;
     uniform Light light;
+    uniform Sun sun;
 
 
     uniform sampler2D diffuseMap;
@@ -135,10 +150,29 @@ const char *fragmentShaderSource = R"glsl(
 
     void main()
     {
+        vec3 normal = normalize(Normal);
+        vec3 toLight = normalize(light.position - FragPos);
+
+        vec3 toCamera = normalize(viewPos - FragPos);
+        vec3 reflection = reflect(-toCamera, normal);
+
+        float spec = pow(max(dot(toLight, reflection), 0.0), material.shininess);
+        vec3 specular = (vec3(texture(specularMap, TexCoord)) * spec) * light.specular;
+
+        float diff = max(dot(normal, toLight), 0.0);
+        vec3 diffMapSample = vec3(texture(diffuseMap, TexCoord));
+        vec3 diffuse = (diff * diffMapSample) * light.diffuse;
+
+        vec3 ambient = light.ambient * diffMapSample;
+
+        FragColor = vec4(diffuse + ambient + specular, 1.0);
+    }
+)glsl";
+
+/*
+
         vec3 norm = normalize(Normal);
         vec3 lightDir = normalize(light.position - FragPos);
-
-        float specularStrength = 0.5;
 
         vec3 viewDir = normalize(viewPos - FragPos);
         vec3 reflectDir = reflect(-lightDir, norm);
@@ -152,8 +186,12 @@ const char *fragmentShaderSource = R"glsl(
         vec3 ambient = light.ambient * diffMapSample;
         
         FragColor = vec4(diffuse + ambient + specular, 1.0);
-    }
-)glsl";
+
+*/
+
+float randf() {
+    return (rand() % 10000) / 1000.f;
+}
 
 int main() {
 
@@ -182,53 +220,54 @@ int main() {
     glfwGetCursorPos(window, &mouseLastX, &mouseLastY);
     glfwSetCursorPosCallback(window, mouse_callback);
 
+    glfwSwapInterval(1);
 
     int nrAttributes;
     glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &nrAttributes);
     std::cout << "Maximum nr of vertex attributes supported: " << nrAttributes << std::endl;
 
     float vertices[] = {
-        -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
-         0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 0.0f,
-         0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
-         0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
-        -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 1.0f,
-        -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
+        -0.5f,-0.5f,-0.5f,  0.0f, 0.0f,-1.0f,  0.0f, 0.0f,
+         0.5f,-0.5f,-0.5f,  0.0f, 0.0f,-1.0f,  1.0f, 0.0f,
+         0.5f, 0.5f,-0.5f,  0.0f, 0.0f,-1.0f,  1.0f, 1.0f,
+         0.5f, 0.5f,-0.5f,  0.0f, 0.0f,-1.0f,  1.0f, 1.0f,
+        -0.5f, 0.5f,-0.5f,  0.0f, 0.0f,-1.0f,  0.0f, 1.0f,
+        -0.5f,-0.5f,-0.5f,  0.0f, 0.0f,-1.0f,  0.0f, 0.0f,
 
-        -0.5f, -0.5f,  0.5f,  0.0f,  0.0f, 1.0f,  0.0f, 0.0f,
-         0.5f, -0.5f,  0.5f,  0.0f,  0.0f, 1.0f,  1.0f, 0.0f,
-         0.5f,  0.5f,  0.5f,  0.0f,  0.0f, 1.0f,  1.0f, 1.0f,
-         0.5f,  0.5f,  0.5f,  0.0f,  0.0f, 1.0f,  1.0f, 1.0f,
-        -0.5f,  0.5f,  0.5f,  0.0f,  0.0f, 1.0f,  0.0f, 1.0f,
-        -0.5f, -0.5f,  0.5f,  0.0f,  0.0f, 1.0f,  0.0f, 0.0f,
+        -0.5f,-0.5f, 0.5f,  0.0f, 0.0f, 1.0f,  0.0f, 0.0f,
+         0.5f,-0.5f, 0.5f,  0.0f, 0.0f, 1.0f,  1.0f, 0.0f,
+         0.5f, 0.5f, 0.5f,  0.0f, 0.0f, 1.0f,  1.0f, 1.0f,
+         0.5f, 0.5f, 0.5f,  0.0f, 0.0f, 1.0f,  1.0f, 1.0f,
+        -0.5f, 0.5f, 0.5f,  0.0f, 0.0f, 1.0f,  0.0f, 1.0f,
+        -0.5f,-0.5f, 0.5f,  0.0f, 0.0f, 1.0f,  0.0f, 0.0f,
 
-        -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
-        -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
-        -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
-        -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
-        -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
-        -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
+        -0.5f, 0.5f, 0.5f, -1.0f, 0.0f, 0.0f,  1.0f, 0.0f,
+        -0.5f, 0.5f,-0.5f, -1.0f, 0.0f, 0.0f,  1.0f, 1.0f,
+        -0.5f,-0.5f,-0.5f, -1.0f, 0.0f, 0.0f,  0.0f, 1.0f,
+        -0.5f,-0.5f,-0.5f, -1.0f, 0.0f, 0.0f,  0.0f, 1.0f,
+        -0.5f,-0.5f, 0.5f, -1.0f, 0.0f, 0.0f,  0.0f, 0.0f,
+        -0.5f, 0.5f, 0.5f, -1.0f, 0.0f, 0.0f,  1.0f, 0.0f,
 
-         0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
-         0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
-         0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
-         0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
-         0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
-         0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
+         0.5f, 0.5f, 0.5f,  1.0f, 0.0f, 0.0f,  1.0f, 0.0f,
+         0.5f, 0.5f,-0.5f,  1.0f, 0.0f, 0.0f,  1.0f, 1.0f,
+         0.5f,-0.5f,-0.5f,  1.0f, 0.0f, 0.0f,  0.0f, 1.0f,
+         0.5f,-0.5f,-0.5f,  1.0f, 0.0f, 0.0f,  0.0f, 1.0f,
+         0.5f,-0.5f, 0.5f,  1.0f, 0.0f, 0.0f,  0.0f, 0.0f,
+         0.5f, 0.5f, 0.5f,  1.0f, 0.0f, 0.0f,  1.0f, 0.0f,
 
-        -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 1.0f,
-         0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 1.0f,
-         0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 0.0f,
-         0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 0.0f,
-        -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 0.0f,
-        -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 1.0f,
+        -0.5f,-0.5f,-0.5f,  0.0f,-1.0f, 0.0f,  0.0f, 1.0f,
+         0.5f,-0.5f,-0.5f,  0.0f,-1.0f, 0.0f,  1.0f, 1.0f,
+         0.5f,-0.5f, 0.5f,  0.0f,-1.0f, 0.0f,  1.0f, 0.0f,
+         0.5f,-0.5f, 0.5f,  0.0f,-1.0f, 0.0f,  1.0f, 0.0f,
+        -0.5f,-0.5f, 0.5f,  0.0f,-1.0f, 0.0f,  0.0f, 0.0f,
+        -0.5f,-0.5f,-0.5f,  0.0f,-1.0f, 0.0f,  0.0f, 1.0f,
 
-        -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f,
-         0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 1.0f,
-         0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f,
-         0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f,
-        -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 0.0f,
-        -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f
+        -0.5f, 0.5f,-0.5f,  0.0f, 1.0f, 0.0f,  0.0f, 1.0f,
+         0.5f, 0.5f,-0.5f,  0.0f, 1.0f, 0.0f,  1.0f, 1.0f,
+         0.5f, 0.5f, 0.5f,  0.0f, 1.0f, 0.0f,  1.0f, 0.0f,
+         0.5f, 0.5f, 0.5f,  0.0f, 1.0f, 0.0f,  1.0f, 0.0f,
+        -0.5f, 0.5f, 0.5f,  0.0f, 1.0f, 0.0f,  0.0f, 0.0f,
+        -0.5f, 0.5f,-0.5f,  0.0f, 1.0f, 0.0f,  0.0f, 1.0f
     };
 
     unsigned int indices[36];
@@ -369,8 +408,29 @@ int main() {
 
     glEnable(GL_DEPTH_TEST);
 
+    Model models[10];
+    for (int i = 0; i < 10; i++)
+        models[i] = { { randf(), randf(), randf() }, { 1.0f, 1.0f, 1.0f } };
+    
+    int frames = 0;
+    std::chrono::high_resolution_clock::time_point t1 = 
+        std::chrono::high_resolution_clock::now();
 
     while (!glfwWindowShouldClose(window)) {
+
+        std::chrono::high_resolution_clock::time_point t2 = 
+            std::chrono::high_resolution_clock::now();
+
+        uint64_t dt = (t2 - t1).count();
+        frames++;
+
+        if (dt > 1000000000) {
+            t1 = t2;
+            std::cout << frames << '\n';
+            frames = 0;
+        }
+
+
         processInput(window);
         glfwSwapBuffers(window);
         glfwPollEvents();    
@@ -380,30 +440,38 @@ int main() {
 
         float timeValue = glfwGetTime();
 
-        eng::Mat4f proj = eng::Matrix4x4<float>::GL_Projection(90.f, 800, 600, 0.1, 100.f);
+        int wWidth, wHeight;
+        glfwGetWindowSize(window, &wWidth, &wHeight);
+
+        eng::Mat4f proj = eng::Mat4f::GL_Projection(90.f, wWidth, wHeight, 0.1, 100.f);
+
         eng::Mat4f rot = eng::Matrix4x4<float>::yRotation(sin(timeValue));
         eng::Mat4f view = eng::Mat4f::xRotation(cameraRotX)
             * eng::Mat4f::yRotation(cameraRotY)
             * eng::Mat4f::translation(-cameraPosX, -cameraPosY, -cameraPosZ);
-        eng::Mat4f model = rot;
-        eng::Mat4f pos = proj * view * model;
+        for (int i = 0; i < 10; i++) {
+            eng::Vec3f p = models[i].position;
+            eng::Mat4f trans = eng::Mat4f::translation(p[0], p[1], p[2]);
+            eng::Mat4f model = trans * rot;
+            eng::Mat4f pos = proj * view * model;
 
-        glUniformMatrix4fv(positionMatrixLocation, 1, false, pos[0]);
-        glUniformMatrix4fv(modelMatrixLocation, 1, false, model[0]);
-        glUniform3f(viewPositionLocation, cameraPosX, cameraPosY, cameraPosZ);
+            glUniformMatrix4fv(positionMatrixLocation, 1, false, pos[0]);
+            glUniformMatrix4fv(modelMatrixLocation, 1, false, model[0]);
+            glUniform3f(viewPositionLocation, cameraPosX, cameraPosY, cameraPosZ);
 
-        glUniform3f(lightPositionLoc, lightPos[0], lightPos[1], lightPos[2]);
-        glUniform3f(lightAmbientLoc, 0.2f, 0.3f, 0.3f);
-        glUniform3f(lightSpecularLoc, 0.5f, 0.5f, 0.5f);
-        glUniform3f(lightDiffuseLoc, 1.0f, 1.0f, 1.0f);
+            glUniform3f(lightPositionLoc, lightPos[0], lightPos[1], lightPos[2]);
+            glUniform3f(lightAmbientLoc, 0.2f, 0.3f, 0.3f);
+            glUniform3f(lightSpecularLoc, 0.5f, 0.5f, 0.5f);
+            glUniform3f(lightDiffuseLoc, 1.0f, 1.0f, 1.0f);
 
-        glUniform3f(matAmbientLoc, 0.2f, 0.3f, 0.3f);
-        // glUniform3f(matDiffuseLoc, 1.0f, 0.5f, 0.31f);
-        // glUniform3f(matSpecularLoc, 0.5f, 0.5f, 0.5f);
-        glUniform1f(matShininessLoc, 32.0f);
+            glUniform3f(matAmbientLoc, 0.2f, 0.3f, 0.3f);
+            // glUniform3f(matDiffuseLoc, 1.0f, 0.5f, 0.31f);
+            // glUniform3f(matSpecularLoc, 0.5f, 0.5f, 0.5f);
+            glUniform1f(matShininessLoc, 32.0f);
 
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-        glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+            glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+        }
     }
 
     glDeleteBuffers(1, &VBO);

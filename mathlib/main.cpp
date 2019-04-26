@@ -23,7 +23,7 @@ int main(int argc, char *argv[]) {
 
     std::cout << v4 * v5 << '\n';
 
-    eng::Matrix4x4<float> mat1(1.0f);
+    eng::Mat4f mat1(1.0f);
     eng::Mat4f mat2 = mat1;
     mat2[0][0] = 0.6f;
 
